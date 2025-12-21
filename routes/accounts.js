@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('../generated/prisma');
 const prisma = new PrismaClient();

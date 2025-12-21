@@ -7,3 +7,148 @@ datasource db {
   provider = "mysql"
   url      = "mysql://Sam:samwebshop@localhost:3306/moviemate"
 }
+
+model accounts {
+  Account_ID         Int                  @id @default(autoincrement())
+  First_Name         String?              @db.VarChar(100)
+  Last_Name          String?              @db.VarChar(100)
+  Email              String               @unique(map: "Email") @db.VarChar(255)
+  Account_Balance    Decimal?             @default(0.00) @db.Decimal(10, 2)
+  Created_At         DateTime?            @default(now()) @db.DateTime(0)
+  Updated_At         DateTime?            @default(now()) @db.DateTime(0)
+  IsActive           Boolean?             @default(true)
+  IsAdmin            Boolean?             @default(false)
+  auth_providers     auth_providers[]
+  bookings           bookings[]
+  notifications      notifications[]
+  verification_codes verification_codes[]
+}
+
+model auth_providers {
+  Provider_ID      Int       @id @default(autoincrement())
+  User_ID          Int
+  Provider_Name    String    @db.VarChar(50)
+  Provider_User_ID String?   @db.VarChar(255)
+  Password_Hash    String?   @db.VarChar(255)
+  Created_At       DateTime? @default(now()) @db.DateTime(0)
+  Updated_At       DateTime? @default(now()) @db.DateTime(0)
+  Is_Active        Boolean?  @default(true)
+  accounts         accounts  @relation(fields: [User_ID], references: [Account_ID], onUpdate: Restrict, map: "auth_providers_ibfk_1")
+
+  @@index([User_ID], map: "User_ID")
+}
+
+model bookings {
+  Booking_ID     Int       @id @default(autoincrement())
+  Show_ID        Int
+  User_ID        Int
+  Booking_Date   DateTime? @default(now()) @db.DateTime(0)
+  Tickets        Int
+  Total_Price    Decimal   @db.Decimal(10, 2)
+  Payment_Method String?   @db.VarChar(50)
+  Payment_Date   DateTime? @db.DateTime(0)
+  IsActive       Boolean?  @default(true)
+  showtimes      showtimes @relation(fields: [Show_ID], references: [Show_ID], onUpdate: Restrict, map: "bookings_ibfk_1")
+  accounts       accounts  @relation(fields: [User_ID], references: [Account_ID], onUpdate: Restrict, map: "bookings_ibfk_2")
+
+  @@index([Show_ID], map: "Show_ID")
+  @@index([User_ID], map: "User_ID")
+}
+
+model formats {
+  Format_ID Int         @id @default(autoincrement())
+  Name      String      @db.VarChar(50)
+  showtimes showtimes[]
+}
+
+model genres {
+  Genre_ID Int      @id @default(autoincrement())
+  Name     String   @db.VarChar(100)
+  movies   movies[]
+}
+
+model languages {
+  Language_ID                                Int         @id @default(autoincrement())
+  Name                                       String      @db.VarChar(50)
+  showtimes_showtimes_Language_IDTolanguages showtimes[] @relation("showtimes_Language_IDTolanguages")
+  showtimes_showtimes_Captions_IDTolanguages showtimes[] @relation("showtimes_Captions_IDTolanguages")
+}
+
+model movies {
+  Movie_ID  Int         @id @default(autoincrement())
+  TMDB_ID   Int?        @unique(map: "TMDB_ID")
+  Title     String      @db.VarChar(255)
+  Genre_ID  Int
+  Runtime   Int?
+  Rating    Decimal?    @db.Decimal(3, 1)
+  Added_At  DateTime?   @default(now()) @db.DateTime(0)
+  IsActive  Boolean?    @default(true)
+  genres    genres      @relation(fields: [Genre_ID], references: [Genre_ID], onUpdate: Restrict, map: "movies_ibfk_1")
+  showtimes showtimes[]
+
+  @@index([Genre_ID], map: "Genre_ID")
+}
+
+model notifications {
+  Notification_ID Int       @id @default(autoincrement())
+  User_ID         Int
+  Purpose         String?   @db.VarChar(50)
+  Message         String?   @db.Text
+  Method          String?   @db.VarChar(50)
+  Sent_At         DateTime? @default(now()) @db.DateTime(0)
+  accounts        accounts  @relation(fields: [User_ID], references: [Account_ID], onUpdate: Restrict, map: "notifications_ibfk_1")
+
+  @@index([User_ID], map: "User_ID")
+}
+
+model showtimes {
+  Show_ID                                    Int        @id @default(autoincrement())
+  Movie_ID                                   Int
+  Theater_ID                                 Int
+  Show_Date                                  DateTime   @db.Date
+  Start_Time                                 DateTime   @db.Time(0)
+  End_Time                                   DateTime   @db.Time(0)
+  Price                                      Decimal    @db.Decimal(10, 2)
+  Format_ID                                  Int
+  Language_ID                                Int
+  Captions_ID                                Int?
+  Added_At                                   DateTime?  @default(now()) @db.DateTime(0)
+  IsActive                                   Boolean?   @default(true)
+  bookings                                   bookings[]
+  movies                                     movies     @relation(fields: [Movie_ID], references: [Movie_ID], onUpdate: Restrict, map: "showtimes_ibfk_1")
+  theaters                                   theaters   @relation(fields: [Theater_ID], references: [Theatre_ID], onUpdate: Restrict, map: "showtimes_ibfk_2")
+  formats                                    formats    @relation(fields: [Format_ID], references: [Format_ID], onUpdate: Restrict, map: "showtimes_ibfk_3")
+  languages_showtimes_Language_IDTolanguages languages  @relation("showtimes_Language_IDTolanguages", fields: [Language_ID], references: [Language_ID], onUpdate: Restrict, map: "showtimes_ibfk_4")
+  languages_showtimes_Captions_IDTolanguages languages? @relation("showtimes_Captions_IDTolanguages", fields: [Captions_ID], references: [Language_ID], onDelete: Restrict, onUpdate: Restrict, map: "showtimes_ibfk_5")
+
+  @@index([Captions_ID], map: "Captions_ID")
+  @@index([Format_ID], map: "Format_ID")
+  @@index([Language_ID], map: "Language_ID")
+  @@index([Movie_ID], map: "Movie_ID")
+  @@index([Theater_ID], map: "Theater_ID")
+}
+
+model theaters {
+  Theatre_ID   Int         @id @default(autoincrement())
+  Name         String      @db.VarChar(255)
+  Full_Address String?     @db.VarChar(255)
+  Street       String?     @db.VarChar(255)
+  City         String?     @db.VarChar(100)
+  Postal_Code  String?     @db.VarChar(20)
+  Latitude     Decimal?    @db.Decimal(9, 6)
+  Longitude    Decimal?    @db.Decimal(9, 6)
+  Website      String?     @db.VarChar(255)
+  showtimes    showtimes[]
+}
+
+model verification_codes {
+  Code_ID    Int       @id @default(autoincrement())
+  User_ID    Int
+  Purpose    String?   @db.VarChar(50)
+  Code       String?   @db.VarChar(10)
+  Sent_At    DateTime? @default(now()) @db.DateTime(0)
+  Expires_At DateTime? @db.DateTime(0)
+  accounts   accounts  @relation(fields: [User_ID], references: [Account_ID], onUpdate: Restrict, map: "verification_codes_ibfk_1")
+
+  @@index([User_ID], map: "User_ID")
+}
