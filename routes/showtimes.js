@@ -11,11 +11,11 @@ router.get('/', async (req, res) => {
     const showtimes = await prisma.showtimes.findMany({
       where: { IsActive: true },
       include: {
-        Movies: true,
-        Theaters: true,
-        Formats: true,
-        Languages: true,
-        Captions: true
+        movies: true,
+        theaters: true,
+        formats: true,
+        languages_showtimes_Language_IDTolanguages: true,   // spoken language
+        languages_showtimes_Captions_IDTolanguages: true   // captions language
       }
     });
     res.json(showtimes);
@@ -32,14 +32,18 @@ router.get('/:id', async (req, res) => {
     const showtime = await prisma.showtimes.findUnique({
       where: { Show_ID: parseInt(req.params.id) },
       include: {
-        Movies: true,
-        Theaters: true,
-        Formats: true,
-        Languages: true,
-        Captions: true
+        movies: true,
+        theaters: true,
+        formats: true,
+        languages_showtimes_Language_IDTolanguages: true,
+        languages_showtimes_Captions_IDTolanguages: true
       }
     });
-    if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
+
+    if (!showtime) {
+      return res.status(404).json({ error: 'Showtime not found' });
+    }
+
     res.json(showtime);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -50,7 +54,18 @@ router.get('/:id', async (req, res) => {
 // Add new showtime (admin)
 // --------------------
 router.post('/', async (req, res) => {
-  const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID } = req.body;
+  const {
+    Movie_ID,
+    Theater_ID,
+    Show_Date,
+    Start_Time,
+    End_Time,
+    Price,
+    Format_ID,
+    Language_ID,
+    Captions_ID
+  } = req.body;
+
   try {
     const newShowtime = await prisma.showtimes.create({
       data: {
@@ -65,6 +80,7 @@ router.post('/', async (req, res) => {
         Captions_ID
       }
     });
+
     res.json({ message: 'Showtime added', newShowtime });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -75,12 +91,36 @@ router.post('/', async (req, res) => {
 // Update showtime (admin)
 // --------------------
 router.put('/:id', async (req, res) => {
-  const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID, IsActive } = req.body;
+  const {
+    Movie_ID,
+    Theater_ID,
+    Show_Date,
+    Start_Time,
+    End_Time,
+    Price,
+    Format_ID,
+    Language_ID,
+    Captions_ID,
+    IsActive
+  } = req.body;
+
   try {
     const updatedShowtime = await prisma.showtimes.update({
       where: { Show_ID: parseInt(req.params.id) },
-      data: { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID, IsActive }
+      data: {
+        Movie_ID,
+        Theater_ID,
+        Show_Date,
+        Start_Time,
+        End_Time,
+        Price,
+        Format_ID,
+        Language_ID,
+        Captions_ID,
+        IsActive
+      }
     });
+
     res.json({ message: 'Showtime updated', updatedShowtime });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -88,7 +128,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // --------------------
-// Delete showtime (admin)
+// Delete showtime (soft delete)
 // --------------------
 router.delete('/:id', async (req, res) => {
   try {
@@ -96,6 +136,7 @@ router.delete('/:id', async (req, res) => {
       where: { Show_ID: parseInt(req.params.id) },
       data: { IsActive: false }
     });
+
     res.json({ message: 'Showtime deactivated' });
   } catch (err) {
     res.status(500).json({ error: err.message });
