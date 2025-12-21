@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 // --------------------
 // Get all showtimes (public)
+// --------------------
 router.get('/', async (req, res) => {
   try {
     const showtimes = await prisma.showtimes.findMany({
@@ -25,6 +26,7 @@ router.get('/', async (req, res) => {
 
 // --------------------
 // Get showtime by ID
+// --------------------
 router.get('/:id', async (req, res) => {
   try {
     const showtime = await prisma.showtimes.findUnique({
@@ -46,6 +48,7 @@ router.get('/:id', async (req, res) => {
 
 // --------------------
 // Add new showtime (admin)
+// --------------------
 router.post('/', async (req, res) => {
   const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID } = req.body;
   try {
@@ -70,23 +73,13 @@ router.post('/', async (req, res) => {
 
 // --------------------
 // Update showtime (admin)
+// --------------------
 router.put('/:id', async (req, res) => {
   const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID, IsActive } = req.body;
   try {
     const updatedShowtime = await prisma.showtimes.update({
       where: { Show_ID: parseInt(req.params.id) },
-      data: {
-        Movie_ID,
-        Theater_ID,
-        Show_Date,
-        Start_Time,
-        End_Time,
-        Price,
-        Format_ID,
-        Language_ID,
-        Captions_ID,
-        IsActive
-      }
+      data: { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID, IsActive }
     });
     res.json({ message: 'Showtime updated', updatedShowtime });
   } catch (err) {
@@ -96,11 +89,12 @@ router.put('/:id', async (req, res) => {
 
 // --------------------
 // Delete showtime (admin)
+// --------------------
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.showtimes.update({
       where: { Show_ID: parseInt(req.params.id) },
-      data: { IsActive: false } 
+      data: { IsActive: false }
     });
     res.json({ message: 'Showtime deactivated' });
   } catch (err) {
