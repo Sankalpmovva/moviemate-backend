@@ -1,8 +1,111 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
+const { PrismaClient } = require('../generated/prisma');
+const prisma = new PrismaClient();
 
-router.get("/", (req, res) => {
-  res.send("Route is working");
+// --------------------
+// Get all showtimes (public)
+router.get('/', async (req, res) => {
+  try {
+    const showtimes = await prisma.showtimes.findMany({
+      where: { IsActive: true },
+      include: {
+        Movies: true,
+        Theaters: true,
+        Formats: true,
+        Languages: true,
+        Captions: true
+      }
+    });
+    res.json(showtimes);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// Get showtime by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const showtime = await prisma.showtimes.findUnique({
+      where: { Show_ID: parseInt(req.params.id) },
+      include: {
+        Movies: true,
+        Theaters: true,
+        Formats: true,
+        Languages: true,
+        Captions: true
+      }
+    });
+    if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
+    res.json(showtime);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// Add new showtime (admin)
+router.post('/', async (req, res) => {
+  const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID } = req.body;
+  try {
+    const newShowtime = await prisma.showtimes.create({
+      data: {
+        Movie_ID,
+        Theater_ID,
+        Show_Date,
+        Start_Time,
+        End_Time,
+        Price,
+        Format_ID,
+        Language_ID,
+        Captions_ID
+      }
+    });
+    res.json({ message: 'Showtime added', newShowtime });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// Update showtime (admin)
+router.put('/:id', async (req, res) => {
+  const { Movie_ID, Theater_ID, Show_Date, Start_Time, End_Time, Price, Format_ID, Language_ID, Captions_ID, IsActive } = req.body;
+  try {
+    const updatedShowtime = await prisma.showtimes.update({
+      where: { Show_ID: parseInt(req.params.id) },
+      data: {
+        Movie_ID,
+        Theater_ID,
+        Show_Date,
+        Start_Time,
+        End_Time,
+        Price,
+        Format_ID,
+        Language_ID,
+        Captions_ID,
+        IsActive
+      }
+    });
+    res.json({ message: 'Showtime updated', updatedShowtime });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// Delete showtime (admin)
+router.delete('/:id', async (req, res) => {
+  try {
+    await prisma.showtimes.update({
+      where: { Show_ID: parseInt(req.params.id) },
+      data: { IsActive: false } 
+    });
+    res.json({ message: 'Showtime deactivated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
