@@ -75,16 +75,19 @@ model languages {
 }
 
 model movies {
-  Movie_ID  Int         @id @default(autoincrement())
-  TMDB_ID   Int?        @unique(map: "TMDB_ID")
-  Title     String      @db.VarChar(255)
-  Genre_ID  Int
-  Runtime   Int?
-  Rating    Decimal?    @db.Decimal(3, 1)
-  Added_At  DateTime?   @default(now()) @db.DateTime(0)
-  IsActive  Boolean?    @default(true)
-  genres    genres      @relation(fields: [Genre_ID], references: [Genre_ID], onUpdate: Restrict, map: "movies_ibfk_1")
-  showtimes showtimes[]
+  Movie_ID     Int         @id @default(autoincrement())
+  TMDB_ID      Int?        @unique(map: "TMDB_ID")
+  Title        String      @db.VarChar(255)
+  Genre_ID     Int
+  Runtime      Int?
+  Rating       Decimal?    @db.Decimal(3, 1)
+  Added_At     DateTime?   @default(now()) @db.DateTime(0)
+  IsActive     Boolean?    @default(true)
+  Poster_URL   String?     @db.VarChar(500)
+  Overview     String?     @db.Text
+  Release_Date DateTime?   @db.Date
+  genres       genres      @relation(fields: [Genre_ID], references: [Genre_ID], onUpdate: Restrict, map: "movies_ibfk_1")
+  showtimes    showtimes[]
 
   @@index([Genre_ID], map: "Genre_ID")
 }
