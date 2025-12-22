@@ -63,7 +63,7 @@ model formats {
 
 model genres {
   Genre_ID Int      @id @default(autoincrement())
-  Name     String   @db.VarChar(100)
+  Name     String   @unique(map: "Name") @db.VarChar(100)
   movies   movies[]
 }
 

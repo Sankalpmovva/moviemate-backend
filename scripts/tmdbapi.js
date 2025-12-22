@@ -1,79 +1,89 @@
 require('dotenv').config();
 const axios = require('axios');
 const { PrismaClient } = require('../generated/prisma');
+
 const prisma = new PrismaClient();
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-// Fetch a batch of popular or now playing movies
-async function fetchMoviesBatch() {
-  try {
-    const response = await axios.get(`${TMDB_BASE_URL}/movie/now_playing`, {
-      params: {
-        api_key: TMDB_API_KEY,
-        language: 'en-US',
-        page: 1,  // can loop multiple pages if needed
-      },
-    });
+// --------------------
+// Fetch popular/now-playing movies from TMDB
+// --------------------
+async function fetchPopularMovies(page = 1) {
+  const response = await axios.get(`${TMDB_BASE_URL}/movie/now_playing`, {
+    params: {
+      api_key: TMDB_API_KEY,
+      language: 'en-US',
+      page,
+    },
+  });
 
-    return response.data.results;
-  } catch (err) {
-    console.error('TMDB fetch error:', err.message);
-    return [];
-  }
+  return response.data.results || [];
 }
 
-// Insert movie into database
-async function insertMovie(movie) {
-  try {
-    // Check if movie already exists
-    const existing = await prisma.movies.findUnique({
-      where: { TMDB_ID: movie.id }
-    });
-    if (existing) return existing;
+// --------------------
+// Fetch TMDB genres once
+// --------------------
+let tmdbGenres = [];
+async function fetchTMDBGenres() {
+  if (tmdbGenres.length > 0) return tmdbGenres;
 
-    // Optional: fetch or create genre
-    const genresData = movie.genre_ids.map(async (genreId) => {
-      return prisma.genres.upsert({
-        where: { Genre_ID: genreId },
-        update: {},
-        create: { Genre_ID: genreId, Name: `Genre ${genreId}` }, // simplified, can map TMDB genre names
-      });
-    });
-
-    await Promise.all(genresData);
-
-    const newMovie = await prisma.movies.create({
-      data: {
-        TMDB_ID: movie.id,
-        Title: movie.title,
-        Poster_URL: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-        Overview: movie.overview,
-        Release_Date: movie.release_date,
-        Rating: movie.vote_average,
-        IsActive: true,
-      },
-    });
-
-    return newMovie;
-
-  } catch (err) {
-    console.error('Insert movie error:', err.message);
-    return null;
-  }
+  const response = await axios.get(`${TMDB_BASE_URL}/genre/movie/list`, {
+    params: { api_key: TMDB_API_KEY, language: 'en-US' },
+  });
+  tmdbGenres = response.data.genres || [];
+  return tmdbGenres;
 }
 
-// Main function
-(async () => {
-  const movies = await fetchMoviesBatch();
-  console.log(`Fetched ${movies.length} movies from TMDB.`);
+// --------------------
+// Insert movies into database
+// --------------------
+async function importMovies() {
+  const genresList = await fetchTMDBGenres();
+  const movies = await fetchPopularMovies();
 
   for (const movie of movies) {
-    const inserted = await insertMovie(movie);
-    if (inserted) console.log('Inserted:', inserted.Title);
+    try {
+      if (!movie.genre_ids || movie.genre_ids.length === 0) continue;
+
+      // Use the first genre only
+      const genreId = movie.genre_ids[0];
+      const genreData = genresList.find(g => g.id === genreId);
+      if (!genreData) continue;
+
+      // Ensure genre exists in DB
+      const dbGenre = await prisma.genres.upsert({
+        where: { Name: genreData.name },
+        update: {},
+        create: { Name: genreData.name },
+      });
+
+      // Insert movie
+      await prisma.movies.create({
+        data: {
+          TMDB_ID: movie.id,
+          Title: movie.title,
+          Poster_URL: movie.poster_path
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+            : null,
+          Overview: movie.overview,
+          Release_Date: movie.release_date ? new Date(movie.release_date) : null,
+          Rating: movie.vote_average,
+          IsActive: true,
+          Genre_ID: dbGenre.Genre_ID,
+        },
+      });
+
+      console.log(`Inserted: ${movie.title}`);
+    } catch (err) {
+      console.error(`Insert failed for "${movie.title}":`, err.message);
+    }
   }
 
-  console.log('All done.');
-  process.exit();
-})();
+  console.log('Movie import completed.');
+  await prisma.$disconnect();
+}
+
+// --------------------
+importMovies();
