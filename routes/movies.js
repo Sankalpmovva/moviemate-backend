@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   try {
     const movies = await prisma.movies.findMany({
       where: { IsActive: true },
-      include: { Genres: true }
+      include: { genres: true }
     });
     res.json(movies);
   } catch (err) {
