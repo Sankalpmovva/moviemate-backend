@@ -4,9 +4,11 @@ const axios = require('axios');
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-// --------------------
-// Function to search a movie by title
-// --------------------
+/**
+ * Fetch movie details from TMDB by title
+ * @param {string} title - Movie title
+ * @returns {object|null} - TMDB movie details or null if not found
+ */
 async function fetchMovieDetails(title) {
   try {
     const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, {
@@ -20,12 +22,9 @@ async function fetchMovieDetails(title) {
     });
 
     const results = response.data.results;
-    if (!results || results.length === 0) {
-      return null; // movie not found
-    }
+    if (!results || results.length === 0) return null;
 
-    // Take the first result (most relevant)
-    const movie = results[0];
+    const movie = results[0]; // first match
 
     return {
       TMDB_ID: movie.id,
@@ -42,13 +41,13 @@ async function fetchMovieDetails(title) {
   }
 }
 
-// --------------------
-// Example usage
-// --------------------
-(async () => {
-  const movieTitle = 'Avatar: The Way of Water';
-  const movieData = await fetchMovieDetails(movieTitle);
-  console.log(movieData);
-})();
+// Optional test run
+if (require.main === module) {
+  (async () => {
+    const movieTitle = 'Avatar: The Way of Water';
+    const movieData = await fetchMovieDetails(movieTitle);
+    console.log(movieData);
+  })();
+}
 
 module.exports = { fetchMovieDetails };
