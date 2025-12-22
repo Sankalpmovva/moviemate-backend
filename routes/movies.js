@@ -23,7 +23,7 @@ router.get('/:id', async (req, res) => {
   try {
     const movie = await prisma.movies.findUnique({
       where: { Movie_ID: parseInt(req.params.id) },
-      include: { Genres: true }
+      include: { genres: true }
     });
     if (!movie) return res.status(404).json({ error: 'Movie not found' });
     res.json(movie);
