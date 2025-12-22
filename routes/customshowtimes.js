@@ -6,14 +6,6 @@ const prisma = new PrismaClient();
 // --------------------
 // Helper functions
 // --------------------
-const formats = [
-  { id: 1, name: '2D', price: 10 },
-  { id: 2, name: '3D', price: 15 },
-  { id: 3, name: '4DX', price: 20 },
-];
-
-const languages = [1, 2]; // example Language_IDs
-const captions = [null, 1, 2]; // Caption Language_IDs or null
 const showHours = ['12:00', '15:30', '18:00', '21:00'];
 
 // Random pick function
@@ -30,39 +22,57 @@ router.post('/', async (req, res) => {
     if (!movies.length || !theaters.length)
       return res.status(400).json({ error: 'No movies or theaters found' });
 
+    // Fetch available formats and languages from DB
+    const formatRows = await prisma.formats.findMany({ select: { Format_ID: true, Name: true } });
+    const languageRows = await prisma.languages.findMany({ select: { Language_ID: true, Name: true } });
+
     const showtimeData = [];
 
     for (const movie of movies) {
-      // Randomly pick 1-2 theaters per movie
-      const movieTheaters = theaters.sort(() => 0.5 - Math.random()).slice(0, 2);
-
-      for (const theater of movieTheaters) {
+      for (const theater of theaters) {
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
           const showDate = new Date();
+          showDate.setHours(0, 0, 0, 0); // start at midnight
           showDate.setDate(showDate.getDate() + dayOffset);
 
-          // Randomly pick 1-3 showtimes per day
-          const todaysHours = showHours.sort(() => 0.5 - Math.random()).slice(0, 3);
+          for (const hour of showHours) {
+            const [hhStr, mmStr] = hour.split(':');
+            const hh = parseInt(hhStr);
+            const mm = parseInt(mmStr);
 
-          for (const hour of todaysHours) {
-            const [hh, mm] = hour.split(':');
-            const startTime = `${hh}:${mm}:00`;
-            const endTime = `${parseInt(hh) + 2}:${mm}:00`; // assume 2h runtime
+            // Start time Date object
+            const startTime = new Date(showDate);
+            startTime.setHours(hh, mm, 0, 0);
 
-            // Pick random format and use corresponding price
-            const format = randomPick(formats);
+            // End time (2h runtime)
+            const endTime = new Date(showDate);
+            let endHour = hh + 2;
+            if (endHour >= 24) endHour -= 24; // wrap around midnight
+            endTime.setHours(endHour, mm, 0, 0);
+
+            // Pick random format and language
+            const format = randomPick(formatRows);
+            const language = randomPick(languageRows);
+
+            // Randomly assign captions (50% chance)
+            const caption = Math.random() < 0.5 ? language : null;
+
+            // Price based on format
+            let price = 10; // default
+            if (format.Name.toLowerCase() === '3d') price = 15;
+            if (format.Name.toLowerCase() === '4dx') price = 20;
 
             showtimeData.push({
               Movie_ID: movie.Movie_ID,
               Theater_ID: theater.Theatre_ID,
-              Show_Date: showDate.toISOString().split('T')[0],
-              Start_Time: startTime,
-              End_Time: endTime,
-              Price: format.price,
-              Format_ID: format.id,
-              Language_ID: randomPick(languages),
-              Captions_ID: randomPick(captions),
-              IsActive: true,
+              Show_Date: showDate, 
+              Start_Time: startTime, 
+              End_Time: endTime,     
+              Price: price,
+              Format_ID: format.Format_ID,
+              Language_ID: language.Language_ID,
+              Captions_ID: caption ? caption.Language_ID : null,
+              IsActive: true
             });
           }
         }
