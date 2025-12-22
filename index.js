@@ -10,7 +10,9 @@ const accountsRouter = require("./routes/accounts");
 const moviesRouter = require("./routes/movies");
 const showtimesRouter = require("./routes/showtimes");
 const bookingsRouter = require("./routes/bookings");
+const tmdbRouter = require('./routes/tmdb');
 
+app.use('/tmdb', tmdbRouter);
 app.use("/accounts", accountsRouter);
 app.use("/movies", moviesRouter);
 app.use("/showtimes", showtimesRouter);
