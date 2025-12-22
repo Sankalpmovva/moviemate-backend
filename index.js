@@ -12,7 +12,9 @@ const showtimesRouter = require("./routes/showtimes");
 const bookingsRouter = require("./routes/bookings");
 const tmdbRouter = require('./routes/tmdb');
 const tmdbSyncRouter = require('./routes/tmdbsync');
+const customShowtimesRouter = require('./routes/customshowtimes');
 
+app.use('/customshowtimes', customShowtimesRouter);
 app.use('/tmdb-sync', tmdbSyncRouter);
 app.use('/tmdb', tmdbRouter);
 app.use("/accounts", accountsRouter);
