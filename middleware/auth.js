@@ -2,7 +2,12 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
 
-module.exports = function authMiddleware(req, res, next) {
+/**
+ * Auth middleware
+ * - Requires a valid JWT
+ * - Attaches decoded token to req.user
+ */
+const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -20,3 +25,21 @@ module.exports = function authMiddleware(req, res, next) {
   }
 };
 
+/**
+ * Admin middleware
+ * - Must be authenticated
+ * - Must have isAdmin === true
+ */
+const adminMiddleware = (req, res, next) => {
+  authMiddleware(req, res, () => {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  });
+};
+
+module.exports = {
+  authMiddleware,
+  adminMiddleware
+};
