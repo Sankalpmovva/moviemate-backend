@@ -35,5 +35,5 @@ app.use('/admin/movies', adminMoviesRouter);
 
 const PORT = process.env.PORT || 2112;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);  // Fixed: was console.log`` instead of console.log()
+  console.log(`Server running on port ${PORT}`);  
 });
