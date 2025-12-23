@@ -220,6 +220,10 @@ router.put('/:id', async (req, res) => {
 // --------------------
 // Add balance to account
 // --------------------
+
+// --------------------
+// Add balance to account
+// --------------------
 router.put('/:id/add-balance', async (req, res) => {
   const { id } = req.params;
   const { amount } = req.body;
@@ -240,13 +244,13 @@ router.put('/:id/add-balance', async (req, res) => {
     const updatedAccount = await prisma.accounts.update({
       where: { Account_ID: parseInt(id) },
       data: { 
-        Account_Balance: (account.Account_Balance || 0) + parseFloat(amount)
+        Account_Balance: parseFloat(account.Account_Balance) + parseFloat(amount)
       }
     });
     
     res.json({ 
       success: true, 
-      newBalance: updatedAccount.Account_Balance 
+      newBalance: parseFloat(updatedAccount.Account_Balance)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
