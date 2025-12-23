@@ -14,7 +14,9 @@ const tmdbRouter = require('./routes/tmdb');
 const tmdbSyncRouter = require('./routes/tmdbsync');
 const customShowtimesRouter = require('./routes/customshowtimes');
 const adminMoviesRouter = require('./routes/admin/movies');
+const adminBookingsRouter = require('./routes/admin/bookings');
 
+app.use('/admin/bookings', adminBookingsRouter);
 app.use('/customshowtimes', customShowtimesRouter);
 app.use('/tmdb-sync', tmdbSyncRouter);
 app.use('/tmdb', tmdbRouter);
