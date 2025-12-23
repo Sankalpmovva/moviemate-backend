@@ -178,3 +178,41 @@ router.post('/oauth/google', async (req, res) => {
 });
 
 module.exports = router;
+
+// --------------------
+// Get account details by ID
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const account = await prisma.accounts.findUnique({
+      where: { Account_ID: parseInt(id) },
+      select: {
+        Account_ID: true,
+        First_Name: true,
+        Last_Name: true,
+        Email: true,
+        Account_Balance: true,
+      }
+    });
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+    res.json(account);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// Update account details (first name / last name)
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName } = req.body;
+  try {
+    const account = await prisma.accounts.update({
+      where: { Account_ID: parseInt(id) },
+      data: { First_Name: firstName, Last_Name: lastName },
+    });
+    res.json({ success: true, account });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
