@@ -1,29 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('../../generated/prisma');
-const adminAuth = require('../../middleware/auth');
-
+const { authMiddleware, adminMiddleware } = require('../../middleware/auth');
 const prisma = new PrismaClient();
 
-// Apply adminAuth to all routes in this file
-router.use(adminAuth);
+// Apply admin middleware to all routes
+router.use(adminMiddleware);
 
 // GET all movies
 router.get('/', async (req, res) => {
   try {
-    const movies = await prisma.movies.findMany();
+    const movies = await prisma.movies.findMany({
+      include: {
+        genres: true
+      },
+      orderBy: {
+        Added_At: 'desc'
+      }
+    });
     res.json(movies);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST new movie
+// CREATE movie
 router.post('/', async (req, res) => {
-  const { title, description, poster, genre, duration, rating } = req.body;
   try {
-    const movie = await prisma.movies.create({
-      data: { title, description, poster, genre, duration, rating }
+    const movie = await prisma.movies.create({ 
+      data: req.body,
+      include: {
+        genres: true
+      }
     });
     res.json(movie);
   } catch (err) {
@@ -31,14 +39,15 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT update movie
+// UPDATE movie
 router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const data = req.body;
   try {
     const movie = await prisma.movies.update({
-      where: { Movie_ID: parseInt(id) },
-      data
+      where: { Movie_ID: parseInt(req.params.id) },
+      data: req.body,
+      include: {
+        genres: true
+      }
     });
     res.json(movie);
   } catch (err) {
@@ -46,12 +55,14 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE movie
+// DELETE movie (soft delete)
 router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
   try {
-    await prisma.movies.delete({ where: { Movie_ID: parseInt(id) } });
-    res.json({ success: true });
+    await prisma.movies.update({
+      where: { Movie_ID: parseInt(req.params.id) },
+      data: { IsActive: false }
+    });
+    res.json({ success: true, message: 'Movie deactivated' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
