@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 // Apply admin middleware to all routes
 router.use(adminMiddleware);
 
-// GET all users with filters (simplified - no pagination)
+// GET all users with filters 
 router.get('/', async (req, res) => {
   try {
     const { 
@@ -16,6 +16,9 @@ router.get('/', async (req, res) => {
       role = 'all'
     } = req.query;
 
+    console.log('Query params:', { search, status, role });
+
+    // Build WHERE clause for MySQL
     const where = {};
 
     // Filter by active status
@@ -32,29 +35,31 @@ router.get('/', async (req, res) => {
       where.IsAdmin = false;
     }
 
-    // Search filter (name or email)
-    if (search) {
+    // Search filter 
+    if (search && search.trim() !== '') {
+      const searchTerm = search.trim();
+      
       where.OR = [
         {
           First_Name: {
-            contains: search,
-            mode: 'insensitive'
+            contains: searchTerm
           }
         },
         {
           Last_Name: {
-            contains: search,
-            mode: 'insensitive'
+            contains: searchTerm
           }
         },
         {
           Email: {
-            contains: search,
-            mode: 'insensitive'
+            contains: searchTerm
           }
         }
       ];
+      
     }
+
+    console.log('MySQL where clause:', where);
 
     // Get users with booking count
     const users = await prisma.accounts.findMany({
@@ -71,8 +76,11 @@ router.get('/', async (req, res) => {
       }
     });
 
+    console.log('Found users:', users.length);
     res.json(users);
+    
   } catch (err) {
+    console.error('Error in GET /:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -138,21 +146,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Calculate total spent
-    const totalSpent = await prisma.bookings.aggregate({
-      where: {
-        User_ID: parseInt(req.params.id),
-        IsActive: true
-      },
-      _sum: {
-        Total_Price: true
-      }
-    });
-
-    res.json({
-      ...user,
-      totalSpent: parseFloat(totalSpent._sum.Total_Price || 0)
-    });
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
