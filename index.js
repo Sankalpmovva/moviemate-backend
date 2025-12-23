@@ -20,7 +20,7 @@ const adminAccountsRoutes = require('./routes/admin/accounts');
 const adminDashboardRouter = require('./routes/admin/dashboard');
 
 
-app.use('/api/admin/dashboard', adminDashboardRouter);
+app.use('/admin/dashboard', adminDashboardRouter);
 app.use('/admin/showtimes', adminShowtimesRoutes);
 app.use('/admin/accounts', adminAccountsRoutes);
 app.use('/admin/bookings', adminBookingsRouter);
