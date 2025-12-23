@@ -68,4 +68,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// GET all genres
+router.get('/genres', async (req, res) => {
+  try {
+    const genres = await prisma.genres.findMany({
+      orderBy: {
+        Name: 'asc'
+      }
+    });
+    res.json(genres);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
