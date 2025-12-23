@@ -35,27 +35,66 @@ router.get('/', async (req, res) => {
 // --------------------
 // Create booking
 // --------------------
-router.post('/', async (req, res) => {
-  const { Show_ID, User_ID, Tickets, Total_Price, Payment_Method } = req.body;
+// --------------------
+// Create booking with balance check
+// --------------------
+router.post('/create', async (req, res) => {
+  const { Show_ID, User_ID, Tickets, Total_Price } = req.body;
+
+  if (!Show_ID || !User_ID || !Tickets || !Total_Price) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
 
   try {
+    // Check user balance
+    const account = await prisma.accounts.findUnique({
+      where: { Account_ID: parseInt(User_ID) }
+    });
+
+    if (!account) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    const currentBalance = parseFloat(account.Account_Balance);
+    const price = parseFloat(Total_Price);
+
+    if (currentBalance < price) {
+      return res.status(400).json({ 
+        error: 'Insufficient balance',
+        required: price,
+        current: currentBalance
+      });
+    }
+
+    // Create booking
     const booking = await prisma.bookings.create({
       data: {
-        Show_ID,
-        User_ID,
-        Tickets,
-        Total_Price,
-        Payment_Method,
+        Show_ID: parseInt(Show_ID),
+        User_ID: parseInt(User_ID),
+        Tickets: parseInt(Tickets),
+        Total_Price: price,
+        Payment_Method: 'wallet',
         Payment_Date: new Date()
       }
     });
 
-    res.json({ message: 'Booking successful', booking });
+    // Deduct from balance
+    await prisma.accounts.update({
+      where: { Account_ID: parseInt(User_ID) },
+      data: {
+        Account_Balance: currentBalance - price
+      }
+    });
+
+    res.json({ 
+      message: 'Booking successful', 
+      booking,
+      newBalance: currentBalance - price
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 // --------------------
 // Get booking by ID
 // --------------------
