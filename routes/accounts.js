@@ -216,3 +216,39 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// --------------------
+// Add balance to account
+// --------------------
+router.put('/:id/add-balance', async (req, res) => {
+  const { id } = req.params;
+  const { amount } = req.body;
+  
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount' });
+  }
+  
+  try {
+    const account = await prisma.accounts.findUnique({
+      where: { Account_ID: parseInt(id) }
+    });
+    
+    if (!account) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    
+    const updatedAccount = await prisma.accounts.update({
+      where: { Account_ID: parseInt(id) },
+      data: { 
+        Account_Balance: (account.Account_Balance || 0) + parseFloat(amount)
+      }
+    });
+    
+    res.json({ 
+      success: true, 
+      newBalance: updatedAccount.Account_Balance 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
