@@ -28,8 +28,14 @@ router.post('/', async (req, res) => {
 
     const showtimeData = [];
 
-    for (const movie of movies) {
-      for (const theater of theaters) {
+// Only pick 3 random movies to generate showtimes for
+const selectedMovies = movies.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+for (const movie of selectedMovies) {
+  // Only pick 2 random theaters per movie
+  const selectedTheaters = theaters.sort(() => 0.5 - Math.random()).slice(0, 2);
+  
+  for (const theater of selectedTheaters) {
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
           const showDate = new Date();
           showDate.setHours(0, 0, 0, 0); // start at midnight
