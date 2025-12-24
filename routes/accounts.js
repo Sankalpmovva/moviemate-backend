@@ -153,7 +153,7 @@ router.post('/oauth/google', async (req, res) => {
         email: account.Email, 
         isAdmin: account.IsAdmin || false 
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
