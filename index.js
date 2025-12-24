@@ -25,7 +25,9 @@ const adminShowtimesRoutes = require('./routes/admin/showtimes');
 const adminAccountsRoutes = require('./routes/admin/accounts');
 const adminDashboardRouter = require('./routes/admin/dashboard');
 const adminTmdbRouter = require('./routes/admin/tmdb');
+const passwordResetRouter = require('./routes/password-reset');
 
+app.use('/password-reset', passwordResetRouter);
 app.use('/admin/tmdb', adminTmdbRouter);
 app.use('/admin/dashboard', adminDashboardRouter);
 app.use('/admin/showtimes', adminShowtimesRoutes);
