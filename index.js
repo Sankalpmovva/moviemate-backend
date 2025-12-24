@@ -5,8 +5,10 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: true, 
-  credentials: true
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Import routes
@@ -22,8 +24,9 @@ const adminBookingsRouter = require('./routes/admin/bookings');
 const adminShowtimesRoutes = require('./routes/admin/showtimes');
 const adminAccountsRoutes = require('./routes/admin/accounts');
 const adminDashboardRouter = require('./routes/admin/dashboard');
+const adminTmdbRouter = require('./routes/admin/tmdb');
 
-
+app.use('/admin/tmdb', adminTmdbRouter);
 app.use('/admin/dashboard', adminDashboardRouter);
 app.use('/admin/showtimes', adminShowtimesRoutes);
 app.use('/admin/accounts', adminAccountsRoutes);

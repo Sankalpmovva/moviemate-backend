@@ -86,4 +86,6 @@ async function importMovies() {
 }
 
 // --------------------
-importMovies();
+//importMovies();
+
+module.exports = { importMovies, fetchPopularMovies, fetchTMDBGenres };
