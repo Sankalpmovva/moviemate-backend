@@ -85,18 +85,59 @@ router.post('/login', async (req, res) => {
 // Google OAuth login
 // --------------------
 router.post('/oauth/google', async (req, res) => {
-  const { googleUserId, email, firstName, lastName } = req.body;
-  if (!googleUserId || !email) return res.status(400).json({ error: 'Invalid Google OAuth data' });
-
   try {
-    let account = await prisma.accounts.findUnique({ where: { Email: email } });
-    if (!account) {
-      account = await prisma.accounts.create({ data: { First_Name: firstName, Last_Name: lastName, Email: email } });
+    const { credential } = req.body;
+    
+    if (!credential) {
+      return res.status(400).json({ error: 'Missing Google credential' });
     }
 
+    // Verify the Google ID token
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const googleUserId = payload.sub;
+    const email = payload.email;
+    const firstName = payload.given_name || '';
+    const lastName = payload.family_name || '';
+    
+    console.log('Google OAuth payload:', { googleUserId, email, firstName, lastName });
+
+    // Check if user exists
+    let account = await prisma.accounts.findUnique({ 
+      where: { Email: email } 
+    });
+    
+    // Create new account if doesn't exist
+    if (!account) {
+      account = await prisma.accounts.create({ 
+        data: { 
+          First_Name: firstName, 
+          Last_Name: lastName, 
+          Email: email,
+          Account_Balance: 0.00,
+          IsActive: true,
+          IsAdmin: false
+        } 
+      });
+      console.log('Created new account:', account.Account_ID);
+    }
+
+    // Create or update auth provider
     await prisma.auth_providers.upsert({
-      where: { Provider_User_ID: googleUserId },
-      update: { Is_Active: true },
+      where: { 
+        Provider_User_ID: googleUserId 
+      },
+      update: { 
+        Is_Active: true,
+        Updated_At: new Date()
+      },
       create: {
         User_ID: account.Account_ID,
         Provider_Name: 'google',
@@ -105,26 +146,40 @@ router.post('/oauth/google', async (req, res) => {
       }
     });
 
+    // Generate JWT token
     const token = jwt.sign(
-      { accountId: account.Account_ID, email: account.Email, isAdmin: account.IsAdmin },
-      JWT_SECRET,
+      { 
+        accountId: account.Account_ID, 
+        email: account.Email, 
+        isAdmin: account.IsAdmin || false 
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
+    // Return success response
     res.json({
-      message: 'OAuth login successful',
+      message: 'Google login successful',
       token,
       user: {
         id: account.Account_ID,
         firstName: account.First_Name,
         lastName: account.Last_Name,
         email: account.Email,
-        balance: account.Account_Balance,
-        isAdmin: account.IsAdmin
+        balance: account.Account_Balance || 0,
+        isAdmin: account.IsAdmin || false
       }
     });
+    
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Google OAuth error:', err);
+    
+    // Handle specific Google verification errors
+    if (err.message.includes('Token used too late')) {
+      return res.status(400).json({ error: 'Google token expired. Please try again.' });
+    }
+    
+    res.status(500).json({ error: 'Google authentication failed. Please try again.' });
   }
 });
 
