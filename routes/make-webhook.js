@@ -22,7 +22,7 @@ router.post('/', async (req, res) => {
 
     await prisma.$executeRaw`
       INSERT INTO automation_logs (Trigger_Source, Movies_Imported, Showtimes_Generated, Status, Executed_At)
-      VALUES ('zapier', 20, ${showtimesCount}, 'success', NOW())
+      VALUES ('make.com', 20, ${showtimesCount}, 'success', NOW())
     `;
 
     res.json({ 
