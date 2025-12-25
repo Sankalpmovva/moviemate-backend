@@ -35,9 +35,6 @@ router.get('/', async (req, res) => {
 // --------------------
 // Create booking
 // --------------------
-// --------------------
-// Create booking with balance check
-// --------------------
 router.post('/create', async (req, res) => {
   const { Show_ID, User_ID, Tickets, Total_Price } = req.body;
 
@@ -46,7 +43,6 @@ router.post('/create', async (req, res) => {
   }
 
   try {
-    // Check user balance
     const account = await prisma.accounts.findUnique({
       where: { Account_ID: parseInt(User_ID) }
     });
@@ -66,7 +62,29 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    // Create booking
+    // CHECK CAPACITY
+    const showtime = await prisma.showtimes.findUnique({
+      where: { Show_ID: parseInt(Show_ID) }
+    });
+
+    if (!showtime) {
+      return res.status(404).json({ error: 'Showtime not found' });
+    }
+
+    if (!showtime.Booking_Enabled) {
+      return res.status(400).json({ error: 'Booking is closed for this showtime' });
+    }
+
+    const availableSeats = showtime.Total_Capacity - showtime.Booked_Seats;
+    
+    if (availableSeats < parseInt(Tickets)) {
+      return res.status(400).json({ 
+        error: 'Not enough seats available',
+        availableSeats: availableSeats,
+        requestedSeats: parseInt(Tickets)
+      });
+    }
+
     const booking = await prisma.bookings.create({
       data: {
         Show_ID: parseInt(Show_ID),
@@ -78,11 +96,18 @@ router.post('/create', async (req, res) => {
       }
     });
 
-    // Deduct from balance
     await prisma.accounts.update({
       where: { Account_ID: parseInt(User_ID) },
       data: {
         Account_Balance: currentBalance - price
+      }
+    });
+
+    // UPDATE BOOKED SEATS
+    await prisma.showtimes.update({
+      where: { Show_ID: parseInt(Show_ID) },
+      data: {
+        Booked_Seats: showtime.Booked_Seats + parseInt(Tickets)
       }
     });
 
@@ -140,13 +165,11 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Booking already cancelled' });
     }
     
-    // Deactivate booking
     await prisma.bookings.update({
       where: { Booking_ID: parseInt(req.params.id) },
       data: { IsActive: false }
     });
     
-    // Refund to account balance
     const account = await prisma.accounts.findUnique({
       where: { Account_ID: booking.User_ID }
     });
@@ -155,6 +178,18 @@ router.delete('/:id', async (req, res) => {
       where: { Account_ID: booking.User_ID },
       data: {
         Account_Balance: parseFloat(account.Account_Balance) + parseFloat(booking.Total_Price)
+      }
+    });
+
+    // RETURN SEATS TO CAPACITY
+    const showtime = await prisma.showtimes.findUnique({
+      where: { Show_ID: booking.Show_ID }
+    });
+
+    await prisma.showtimes.update({
+      where: { Show_ID: booking.Show_ID },
+      data: {
+        Booked_Seats: Math.max(0, showtime.Booked_Seats - booking.Tickets)
       }
     });
 

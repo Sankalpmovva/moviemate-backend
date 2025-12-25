@@ -147,4 +147,24 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Update showtime capacity and booking status
+router.put('/:id/capacity', async (req, res) => {
+  try {
+    const { Total_Capacity, Booking_Enabled } = req.body;
+    
+    const updateData = {};
+    if (Total_Capacity !== undefined) updateData.Total_Capacity = parseInt(Total_Capacity);
+    if (Booking_Enabled !== undefined) updateData.Booking_Enabled = Booking_Enabled;
+
+    const showtime = await prisma.showtimes.update({
+      where: { Show_ID: parseInt(req.params.id) },
+      data: updateData
+    });
+
+    res.json({ message: 'Showtime capacity updated', showtime });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
