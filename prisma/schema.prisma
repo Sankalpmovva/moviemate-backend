@@ -155,3 +155,13 @@ model verification_codes {
 
   @@index([User_ID], map: "User_ID")
 }
+
+model automation_logs {
+  Log_ID              Int       @id @default(autoincrement())
+  Trigger_Source      String?   @db.VarChar(50)
+  Movies_Imported     Int?      @default(0)
+  Showtimes_Generated Int?      @default(0)
+  Status              String?   @db.VarChar(50)
+  Error_Message       String?   @db.Text
+  Executed_At         DateTime? @default(now()) @db.DateTime(0)
+}
