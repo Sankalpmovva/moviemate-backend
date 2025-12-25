@@ -33,11 +33,11 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Zapier webhook error:', error);
+    console.error('Make webhook error:', error);
     
     await prisma.$executeRaw`
       INSERT INTO automation_logs (Trigger_Source, Movies_Imported, Showtimes_Generated, Status, Error_Message, Executed_At)
-      VALUES ('zapier', 0, 0, 'failed', ${error.message}, NOW())
+      VALUES ('make.com', 0, 0, 'failed', ${error.message}, NOW())
     `;
 
     res.status(500).json({ 
