@@ -4,7 +4,7 @@ const { PrismaClient } = require('../generated/prisma');
 const prisma = new PrismaClient();
 
 // --------------------
-// Get all showtimes (public) - with optional movieId filter
+// Get all showtimes 
 // --------------------
 router.get('/', async (req, res) => {
   const { movieId } = req.query;
