@@ -117,6 +117,9 @@ model showtimes {
   Captions_ID                                Int?
   Added_At                                   DateTime?  @default(now()) @db.DateTime(0)
   IsActive                                   Boolean?   @default(true)
+  Total_Capacity                             Int?       @default(5)
+  Booked_Seats                               Int?       @default(0)
+  Booking_Enabled                            Boolean?   @default(true)
   bookings                                   bookings[]
   movies                                     movies     @relation(fields: [Movie_ID], references: [Movie_ID], onUpdate: Restrict, map: "showtimes_ibfk_1")
   theaters                                   theaters   @relation(fields: [Theater_ID], references: [Theatre_ID], onUpdate: Restrict, map: "showtimes_ibfk_2")
