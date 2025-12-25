@@ -26,7 +26,9 @@ const adminAccountsRoutes = require('./routes/admin/accounts');
 const adminDashboardRouter = require('./routes/admin/dashboard');
 const adminTmdbRouter = require('./routes/admin/tmdb');
 const passwordResetRouter = require('./routes/passwordreset');
+const zapierWebhookRouter = require('./routes/zapier-webhook');
 
+app.use('/zapier-webhook', zapierWebhookRouter);
 app.use('/passwordreset', passwordResetRouter);
 app.use('/admin/tmdb', adminTmdbRouter);
 app.use('/admin/dashboard', adminDashboardRouter);
