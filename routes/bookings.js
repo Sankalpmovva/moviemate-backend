@@ -111,6 +111,17 @@ router.post('/create', async (req, res) => {
       }
     });
 
+    const updatedShowtime = await prisma.showtimes.findUnique({
+      where: { Show_ID: parseInt(Show_ID) }
+    });
+
+    if (updatedShowtime.Booked_Seats >= updatedShowtime.Total_Capacity) {
+      await prisma.showtimes.update({
+        where: { Show_ID: parseInt(Show_ID) },
+        data: { Booking_Enabled: false }
+      });
+    }
+
     res.json({ 
       message: 'Booking successful', 
       booking,
@@ -186,12 +197,24 @@ router.delete('/:id', async (req, res) => {
       where: { Show_ID: booking.Show_ID }
     });
 
+
     await prisma.showtimes.update({
       where: { Show_ID: booking.Show_ID },
       data: {
         Booked_Seats: Math.max(0, showtime.Booked_Seats - booking.Tickets)
       }
     });
+
+    const updatedShowtime = await prisma.showtimes.findUnique({
+      where: { Show_ID: booking.Show_ID }
+    });
+
+    if (updatedShowtime.Booked_Seats < updatedShowtime.Total_Capacity && !updatedShowtime.Booking_Enabled) {
+      await prisma.showtimes.update({
+        where: { Show_ID: booking.Show_ID },
+        data: { Booking_Enabled: true }
+      });
+    }
 
     res.json({ 
       message: 'Booking cancelled and amount refunded',
