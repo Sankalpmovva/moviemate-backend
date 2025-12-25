@@ -50,7 +50,7 @@ router.post('/', async (req, res) => {
 router.get('/test', (req, res) => {
   res.json({ 
     status: 'ok',
-    message: 'Zapier webhook is ready',
+    message: 'Make webhook is ready',
     timestamp: new Date().toISOString()
   });
 });
