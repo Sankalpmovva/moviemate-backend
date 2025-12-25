@@ -5,17 +5,17 @@ const { generateShowtimes } = require('./customshowtimes');
 const { PrismaClient } = require('../generated/prisma');
 const prisma = new PrismaClient();
 
-const ZAPIER_SECRET = process.env.ZAPIER_SECRET || 'mySecretToken123';
+//const ZAPIER_SECRET = process.env.ZAPIER_SECRET || 'mySecretToken123';
 
 router.post('/', async (req, res) => {
   try {
     const { secret } = req.body;
     
-    if (secret !== ZAPIER_SECRET) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    // if (secret !== ZAPIER_SECRET) {
+    //   return res.status(401).json({ error: 'Unauthorized' });
+    // }
 
-    console.log('Zapier webhook triggered');
+    console.log('Make.com webhook triggered');
 
     await importMovies();
     const showtimesCount = await generateShowtimes();
