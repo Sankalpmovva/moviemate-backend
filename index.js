@@ -23,11 +23,11 @@ const adminAccountsRoutes = require('./routes/admin/accounts');
 const adminDashboardRouter = require('./routes/admin/dashboard');
 const adminTmdbRouter = require('./routes/admin/tmdb');
 const passwordResetRouter = require('./routes/passwordreset');
-const makeWebhookRouter = require('./routes/make-webhook');
+const makeScheduler = require('./routes/make-scheduler');
 const notificationsRouter = require('./routes/notifications');
 
 app.use('/api/notifications', notificationsRouter);
-app.use('/make-webhook', makeWebhookRouter);
+app.use('/make-scheduler', makeScheduler);
 app.use('/passwordreset', passwordResetRouter);
 app.use('/admin/tmdb', adminTmdbRouter);
 app.use('/admin/dashboard', adminDashboardRouter);

@@ -5,17 +5,12 @@ const { generateShowtimes } = require('./customshowtimes');
 const { PrismaClient } = require('../generated/prisma');
 const prisma = new PrismaClient();
 
-//const ZAPIER_SECRET = process.env.ZAPIER_SECRET || 'mySecretToken123';
-
 router.post('/', async (req, res) => {
   try {
     const { secret } = req.body;
     
-    // if (secret !== ZAPIER_SECRET) {
-    //   return res.status(401).json({ error: 'Unauthorized' });
-    // }
 
-    console.log('Make.com webhook triggered');
+    console.log('Make.com scheduler triggered');
 
     await importMovies();
     const showtimesCount = await generateShowtimes();
@@ -33,7 +28,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Make webhook error:', error);
+    console.error('Make scheduler error:', error);
     
     await prisma.$executeRaw`
       INSERT INTO automation_logs (Trigger_Source, Movies_Imported, Showtimes_Generated, Status, Error_Message, Executed_At)
@@ -50,7 +45,7 @@ router.post('/', async (req, res) => {
 router.get('/test', (req, res) => {
   res.json({ 
     status: 'ok',
-    message: 'Make webhook is ready',
+    message: 'Make scheduler is ready',
     timestamp: new Date().toISOString()
   });
 });
