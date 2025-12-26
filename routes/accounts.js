@@ -179,6 +179,63 @@ router.get('/oauth/google/callback', async (req, res) => {
       console.log('Existing account found:', account.Account_ID);
     }
 
+    try {
+      // Check if user already has a Google auth provider
+      const existingGoogleAuth = await prisma.auth_providers.findFirst({
+        where: { 
+          User_ID: account.Account_ID,
+          Provider_Name: 'google'
+        }
+      });
+
+      if (existingGoogleAuth) {
+        // Update existing Google auth
+        await prisma.auth_providers.update({
+          where: { Provider_ID: existingGoogleAuth.Provider_ID },
+          data: { 
+            Provider_User_ID: googleUserId,
+            Is_Active: true,
+            Updated_At: new Date()
+          }
+        });
+        console.log('Updated existing Google auth provider');
+      } else {
+        // Check if user has password auth (to keep both)
+        const existingPasswordAuth = await prisma.auth_providers.findFirst({
+          where: { 
+            User_ID: account.Account_ID,
+            Provider_Name: 'password'
+          }
+        });
+
+        if (existingPasswordAuth) {
+          // User has password auth - CREATE NEW Google auth (user can have both!)
+          await prisma.auth_providers.create({
+            data: {
+              User_ID: account.Account_ID,
+              Provider_Name: 'google',
+              Provider_User_ID: googleUserId,
+              Is_Active: true
+            }
+          });
+          console.log('Created Google auth alongside existing password auth');
+        } else {
+          // No auth provider exists - create Google auth
+          await prisma.auth_providers.create({
+            data: {
+              User_ID: account.Account_ID,
+              Provider_Name: 'google',
+              Provider_User_ID: googleUserId,
+              Is_Active: true
+            }
+          });
+          console.log('Created new Google auth provider');
+        }
+      }
+    } catch (authError) {
+      console.error('Failed to handle auth provider:', authError.message);
+    }
+
     // Create or update auth provider
     try {
       await prisma.auth_providers.upsert({
