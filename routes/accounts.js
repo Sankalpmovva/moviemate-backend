@@ -166,12 +166,16 @@ router.get('/oauth/google/callback', async (req, res) => {
     );
 
     // Redirect to frontend with token
-    const frontendUrl = `${process.env.FRONTEND_URL}/login?token=${token}&email=${encodeURIComponent(email)}&firstName=${encodeURIComponent(firstName)}`;
-    res.redirect(frontendUrl);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const redirectUrl = `${frontendUrl}/login?token=${token}&email=${encodeURIComponent(email)}&firstName=${encodeURIComponent(firstName)}`;
+    console.log('Redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
     
   } catch (err) {
     console.error('Google OAuth callback error:', err);
-    res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
+   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/login?error=oauth_failed`);
   }
 });
 // --------------------
