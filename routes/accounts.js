@@ -85,37 +85,71 @@ router.post('/login', async (req, res) => {
 // Google OAuth callback 
 // --------------------
 router.get('/oauth/google/callback', async (req, res) => {
+  console.log('Google callback route accessed. Query params:', req.query);
+  
   try {
-    const { code } = req.query;
+    const { code, error: googleError } = req.query;
+    
+    // Check if Google returned an error
+    if (googleError) {
+      console.log('Google OAuth error:', googleError);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      return res.redirect(`${frontendUrl}/login?error=google_${googleError}`);
+    }
     
     if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/login?error=missing_code`);
+      console.log('No authorization code received');
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      return res.redirect(`${frontendUrl}/login?error=no_code`);
     }
-
+    
+    console.log('Authorization code received. Length:', code.length);
+    
     const { OAuth2Client } = require('google-auth-library');
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:2112';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    
+    const redirectUri = `${backendUrl}/accounts/oauth/google/callback`;
+    console.log('Using redirect URI:', redirectUri);
+    
     const client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.BACKEND_URL}/accounts/oauth/google/callback`
+      redirectUri
     );
 
+    console.log('Exchanging code for tokens...');
+    
     // Exchange code for tokens
-    const { tokens } = await client.getToken(code);
-    client.setCredentials(tokens);
+    let tokens;
+    try {
+      const tokenResponse = await client.getToken(code);
+      tokens = tokenResponse.tokens;
+      console.log('Tokens received successfully');
+    } catch (tokenError) {
+      console.error('Failed to exchange code for tokens:', tokenError.message);
+      return res.redirect(`${frontendUrl}/login?error=token_exchange_failed`);
+    }
     
-    // Get user info
-    const ticket = await client.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
+    // Verify ID token
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      console.error('Failed to verify ID token:', verifyError.message);
+      return res.redirect(`${frontendUrl}/login?error=token_verification_failed`);
+    }
     
-    const payload = ticket.getPayload();
     const googleUserId = payload.sub;
     const email = payload.email;
     const firstName = payload.given_name || '';
     const lastName = payload.family_name || '';
     
-    console.log('Google OAuth callback payload:', { googleUserId, email, firstName, lastName });
+    console.log('Google user info:', { email, firstName, lastName });
 
     // Check if user exists
     let account = await prisma.accounts.findUnique({ 
@@ -124,58 +158,81 @@ router.get('/oauth/google/callback', async (req, res) => {
     
     // Create new account if doesn't exist
     if (!account) {
-      account = await prisma.accounts.create({ 
-        data: { 
-          First_Name: firstName, 
-          Last_Name: lastName, 
-          Email: email,
-          Account_Balance: 0.00,
-          IsActive: true,
-          IsAdmin: false
-        } 
-      });
-      console.log('Created new account:', account.Account_ID);
+      console.log('Creating new account for:', email);
+      try {
+        account = await prisma.accounts.create({ 
+          data: { 
+            First_Name: firstName, 
+            Last_Name: lastName, 
+            Email: email,
+            Account_Balance: 0.00,
+            IsActive: true,
+            IsAdmin: false
+          } 
+        });
+        console.log('New account created with ID:', account.Account_ID);
+      } catch (dbError) {
+        console.error('Failed to create account:', dbError.message);
+        return res.redirect(`${frontendUrl}/login?error=account_creation_failed`);
+      }
+    } else {
+      console.log('Existing account found:', account.Account_ID);
     }
 
     // Create or update auth provider
-    await prisma.auth_providers.upsert({
-      where: { 
-        Provider_User_ID: googleUserId 
-      },
-      update: { 
-        Is_Active: true,
-        Updated_At: new Date()
-      },
-      create: {
-        User_ID: account.Account_ID,
-        Provider_Name: 'google',
-        Provider_User_ID: googleUserId,
-        Is_Active: true
-      }
-    });
+    try {
+      await prisma.auth_providers.upsert({
+        where: { 
+          Provider_User_ID: googleUserId 
+        },
+        update: { 
+          Is_Active: true,
+          Updated_At: new Date()
+        },
+        create: {
+          User_ID: account.Account_ID,
+          Provider_Name: 'google',
+          Provider_User_ID: googleUserId,
+          Is_Active: true
+        }
+      });
+    } catch (authError) {
+      console.error('Failed to update auth provider:', authError.message);
+      // Continue anyway - this is not critical
+    }
 
     // Generate JWT token
-    const token = jwt.sign(
-      { 
-        accountId: account.Account_ID, 
-        email: account.Email, 
-        isAdmin: account.IsAdmin || false 
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    let token;
+    try {
+      token = jwt.sign(
+        { 
+          accountId: account.Account_ID, 
+          email: account.Email, 
+          isAdmin: account.IsAdmin || false,
+          firstName: account.First_Name,
+          lastName: account.Last_Name
+        },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      console.log('JWT token generated successfully');
+    } catch (jwtError) {
+      console.error('Failed to generate JWT:', jwtError.message);
+      return res.redirect(`${frontendUrl}/login?error=jwt_generation_failed`);
+    }
 
     // Redirect to frontend with token
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const redirectUrl = `${frontendUrl}/login?token=${token}&email=${encodeURIComponent(email)}&firstName=${encodeURIComponent(firstName)}`;
-    console.log('Redirecting to:', redirectUrl);
+    const redirectUrl = `${frontendUrl}/login?token=${token}&success=true`;
+    console.log('Redirecting to frontend:', redirectUrl);
+    
     res.redirect(redirectUrl);
     
   } catch (err) {
-    console.error('Google OAuth callback error:', err);
-   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    console.error('Unexpected error in Google OAuth callback:', err);
+    console.error('Error stack:', err.stack);
+    
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/login?error=unexpected_error`);
   }
 });
 // --------------------
