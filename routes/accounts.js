@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { sendWalletTopup } = require('../config/notifications');
 const { PrismaClient } = require('../generated/prisma');
 
 const prisma = new PrismaClient();
@@ -239,6 +240,15 @@ router.put('/:id/add-balance', async (req, res) => {
       where: { Account_ID: parseInt(id) },
       data: { Account_Balance: parseFloat(account.Account_Balance) + parseFloat(amount) }
     });
+    const newBalance = parseFloat(updatedAccount.Account_Balance);
+    const topupAmount = parseFloat(amount);
+    // Wallet top-up notification
+    try {
+      await sendWalletTopup(account, topupAmount, newBalance);
+      console.log('Wallet top-up notification created for user:', account.Account_ID);
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+    }
 
     res.json({ success: true, newBalance: parseFloat(updatedAccount.Account_Balance) });
   } catch (err) {

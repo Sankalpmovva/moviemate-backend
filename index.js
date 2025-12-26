@@ -27,7 +27,9 @@ const adminDashboardRouter = require('./routes/admin/dashboard');
 const adminTmdbRouter = require('./routes/admin/tmdb');
 const passwordResetRouter = require('./routes/passwordreset');
 const makeWebhookRouter = require('./routes/make-webhook');
+const notificationsRouter = require('./routes/notifications');
 
+app.use('/api/notifications', notificationsRouter);
 app.use('/make-webhook', makeWebhookRouter);
 app.use('/passwordreset', passwordResetRouter);
 app.use('/admin/tmdb', adminTmdbRouter);
@@ -43,6 +45,7 @@ app.use("/movies", moviesRouter);
 app.use("/showtimes", showtimesRouter);
 app.use("/bookings", bookingsRouter);
 app.use('/admin/movies', adminMoviesRouter);
+
 
 const PORT = process.env.PORT || 2112;
 app.listen(PORT, () => {
