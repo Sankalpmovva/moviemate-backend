@@ -234,11 +234,25 @@ router.get('/:id', async (req, res) => {
 // Cancel booking 
 // --------------------
 router.delete('/:id', async (req, res) => {
+  const bookingId = parseInt(req.params.id);
+  console.log('Cancel booking request received for ID:', bookingId);
+  
   try {
+    // Get booking with all related data using correct relation names
     const booking = await prisma.bookings.findUnique({
-      where: { Booking_ID: parseInt(req.params.id) }
+      where: { Booking_ID: bookingId },
+      include: {
+        showtimes: {
+          include: {
+            movies: true,  // This should work based on your schema
+            theaters: true,
+            formats: true
+          }
+        },
+        accounts: true
+      }
     });
-    
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
@@ -246,61 +260,138 @@ router.delete('/:id', async (req, res) => {
     if (!booking.IsActive) {
       return res.status(400).json({ error: 'Booking already cancelled' });
     }
-    
+
+    console.log('Booking found:', {
+      id: booking.Booking_ID,
+      showId: booking.Show_ID,
+      hasShowtime: !!booking.showtimes,
+      hasMovie: !!booking.showtimes?.movies,
+      movieTitle: booking.showtimes?.movies?.Title || 'NO MOVIE FOUND'
+    });
+
+    // Mark booking as inactive
     await prisma.bookings.update({
-      where: { Booking_ID: parseInt(req.params.id) },
+      where: { Booking_ID: bookingId },
       data: { IsActive: false }
     });
-    
-    const account = await prisma.accounts.findUnique({
-      where: { Account_ID: booking.User_ID }
-    });
-    
+
+    console.log('Booking marked as cancelled');
+
+    // Refund amount to account
+    const refundAmount = parseFloat(booking.Total_Price);
+    const currentBalance = parseFloat(booking.accounts.Account_Balance) || 0;
+    const newBalance = currentBalance + refundAmount;
+
     await prisma.accounts.update({
       where: { Account_ID: booking.User_ID },
       data: {
-        Account_Balance: parseFloat(account.Account_Balance) + parseFloat(booking.Total_Price)
+        Account_Balance: newBalance
       }
     });
 
-    // RETURN SEATS TO CAPACITY
+    console.log('Balance refunded to account:', booking.User_ID);
+
+    // Return seats to capacity
     const showtime = await prisma.showtimes.findUnique({
       where: { Show_ID: booking.Show_ID }
     });
 
+    if (!showtime) {
+      console.error('Showtime not found for booking:', booking.Show_ID);
+      return res.status(404).json({ error: 'Showtime not found' });
+    }
 
+    const bookedSeats = showtime.Booked_Seats || 0;
+    const newBookedSeats = Math.max(0, bookedSeats - booking.Tickets);
+    
     await prisma.showtimes.update({
       where: { Show_ID: booking.Show_ID },
       data: {
-        Booked_Seats: Math.max(0, showtime.Booked_Seats - booking.Tickets)
+        Booked_Seats: newBookedSeats
       }
     });
 
+    console.log('Seats returned to showtime');
+
+    // Re-enable booking if it was full
     const updatedShowtime = await prisma.showtimes.findUnique({
       where: { Show_ID: booking.Show_ID }
     });
 
-    if (updatedShowtime.Booked_Seats < updatedShowtime.Total_Capacity && !updatedShowtime.Booking_Enabled) {
+    const updatedBookedSeats = updatedShowtime.Booked_Seats || 0;
+    const updatedTotalCapacity = updatedShowtime.Total_Capacity || 0;
+    
+    if (!updatedShowtime.Booking_Enabled && updatedBookedSeats < updatedTotalCapacity) {
       await prisma.showtimes.update({
         where: { Show_ID: booking.Show_ID },
         data: { Booking_Enabled: true }
       });
+      console.log('Showtime re-enabled for bookings');
     }
 
-    // Booking cancellation notification
+    // Get movie title safely - check if movies relation exists
+    let movieTitle = 'Unknown Movie';
+    if (booking.showtimes && booking.showtimes.movies) {
+      movieTitle = booking.showtimes.movies.Title;
+    } else {
+      // Fallback: try to get movie directly
+      try {
+        const movie = await prisma.movies.findUnique({
+          where: { Movie_ID: showtime.Movie_ID }
+        });
+        movieTitle = movie?.Title || 'Unknown Movie';
+      } catch (movieError) {
+        console.error('Could not fetch movie:', movieError);
+      }
+    }
+
+    // Prepare booking details with safe property access
+    const bookingDetails = {
+      movieTitle: movieTitle,
+      theatreName: booking.showtimes?.theaters?.Name || 'Unknown Theatre',
+      theatreCity: booking.showtimes?.theaters?.City || 'Unknown City',
+      showDate: booking.showtimes?.Show_Date ? 
+                new Date(booking.showtimes.Show_Date).toLocaleDateString('en-GB') : 
+                'Unknown Date',
+      showTime: booking.showtimes?.Start_Time ? 
+                new Date(`1970-01-01T${booking.showtimes.Start_Time}`).toLocaleTimeString('en-GB', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                }) : 'Unknown Time',
+      format: booking.showtimes?.formats?.Name || 'Standard',
+      ticketCount: booking.Tickets,
+      totalPrice: booking.Total_Price,
+      bookingId: booking.Booking_ID
+    };
+
+    console.log('Booking details prepared:', bookingDetails);
+
+    // Send cancellation notification
     try {
-      await sendBookingCancellation(account, bookingDetails);
-      console.log('Cancellation notification created for user:', account.Account_ID);
-    } catch (notifError) {
-      console.error('Failed to create notification:', notifError);
+      await sendBookingCancellation(booking.accounts, bookingDetails);
+      console.log('Cancellation email sent');
+    } catch (emailError) {
+      console.error('Failed to send email:', emailError);
     }
 
     res.json({ 
+      success: true,
       message: 'Booking cancelled and amount refunded',
-      refundedAmount: parseFloat(booking.Total_Price)
+      refundedAmount: refundAmount,
+      newBalance: newBalance
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Booking cancellation error:', {
+      error: err.message,
+      stack: err.stack,
+      bookingId: bookingId
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to cancel booking',
+      details: err.message
+    });
   }
 });
 
