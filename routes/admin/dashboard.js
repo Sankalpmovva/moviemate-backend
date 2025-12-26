@@ -24,14 +24,17 @@ router.get('/stats', async (req, res) => {
     });
 
     // Get total bookings
-    const totalBookings = await prisma.bookings.count();
+    const totalBookings = await prisma.bookings.count({
+      where: { IsActive: true } 
+    });
 
     // Get today's bookings
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayBookings = await prisma.bookings.count({
       where: {
-        Booking_Date: { gte: today }
+        Booking_Date: { gte: today },
+        IsActive: true
       }
     });
 
@@ -39,7 +42,7 @@ router.get('/stats', async (req, res) => {
     const activeShowtimes = await prisma.showtimes.count({
       where: { 
         IsActive: true,
-        Show_Date: { gte: new Date() }
+        Show_Date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
       }
     });
 
@@ -50,7 +53,7 @@ router.get('/stats', async (req, res) => {
       where: {
         IsActive: true,
         Show_Date: { 
-          gte: new Date(),
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
           lte: nextWeek
         }
       }
