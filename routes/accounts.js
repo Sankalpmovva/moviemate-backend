@@ -81,7 +81,99 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// --------------------
+// Google OAuth callback 
+// --------------------
+router.get('/oauth/google/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=missing_code`);
+    }
 
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `${process.env.BACKEND_URL}/accounts/oauth/google/callback`
+    );
+
+    // Exchange code for tokens
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+    
+    // Get user info
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const googleUserId = payload.sub;
+    const email = payload.email;
+    const firstName = payload.given_name || '';
+    const lastName = payload.family_name || '';
+    
+    console.log('Google OAuth callback payload:', { googleUserId, email, firstName, lastName });
+
+    // Check if user exists
+    let account = await prisma.accounts.findUnique({ 
+      where: { Email: email } 
+    });
+    
+    // Create new account if doesn't exist
+    if (!account) {
+      account = await prisma.accounts.create({ 
+        data: { 
+          First_Name: firstName, 
+          Last_Name: lastName, 
+          Email: email,
+          Account_Balance: 0.00,
+          IsActive: true,
+          IsAdmin: false
+        } 
+      });
+      console.log('Created new account:', account.Account_ID);
+    }
+
+    // Create or update auth provider
+    await prisma.auth_providers.upsert({
+      where: { 
+        Provider_User_ID: googleUserId 
+      },
+      update: { 
+        Is_Active: true,
+        Updated_At: new Date()
+      },
+      create: {
+        User_ID: account.Account_ID,
+        Provider_Name: 'google',
+        Provider_User_ID: googleUserId,
+        Is_Active: true
+      }
+    });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        accountId: account.Account_ID, 
+        email: account.Email, 
+        isAdmin: account.IsAdmin || false 
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Redirect to frontend with token
+    const frontendUrl = `${process.env.FRONTEND_URL}/login?token=${token}&email=${encodeURIComponent(email)}&firstName=${encodeURIComponent(firstName)}`;
+    res.redirect(frontendUrl);
+    
+  } catch (err) {
+    console.error('Google OAuth callback error:', err);
+    res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
+  }
+});
 // --------------------
 // Google OAuth login
 // --------------------
@@ -256,4 +348,38 @@ router.put('/:id/add-balance', async (req, res) => {
   }
 });
 
+// --------------------
+// Get current user profile (for Google callback)
+// --------------------
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    const account = await prisma.accounts.findUnique({
+      where: { Account_ID: decoded.accountId }
+    });
+    
+    if (!account) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      id: account.Account_ID,
+      email: account.Email,
+      firstName: account.First_Name,
+      lastName: account.Last_Name,
+      isAdmin: account.IsAdmin || false,
+      balance: account.Account_Balance || 0
+    });
+  } catch (err) {
+    console.error('Get user error:', err);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
 module.exports = router;
